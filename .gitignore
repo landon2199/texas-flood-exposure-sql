@@ -1,0 +1,14 @@
+# raw downloads, the DuckDB database and full-resolution layers (re-created by run.py)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

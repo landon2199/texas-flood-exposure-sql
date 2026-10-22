@@ -1,0 +1,18 @@
+name: gis-portfolio
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - duckdb=1.5.6          # + the 'spatial' extension, installed at runtime (INSTALL spatial)
+  - python-duckdb=1.5.6
+  - geopandas=1.2.0
+  - shapely=2.2.0
+  - pyproj=3.8.0
+  - pyogrio=0.13.0
+  - pandas=3.0.6
+  - numpy=2.5.4
+  - pyarrow=25.0.0
+  - matplotlib=3.11.2
+  - folium=0.20.0
+  - requests=2.34.2
+  - pytest=9.1.1
