@@ -1,6 +1,6 @@
 """Which critical facilities sit in mapped flood hazard areas? (Texas Gulf Coast)
 
-Downloads FEMA NFHL county packages and facility points, runs sql/01..05 in
+Downloads FEMA NFHL county packages and facility points, runs sql/01..06 in
 DuckDB (spatial), cross-checks the SFHA counts with GeoPandas, and writes
 results/, figures/ and docs/map.html.
 
@@ -32,6 +32,8 @@ def parse_args():
     p.add_argument("--crs", default="EPSG:3083", help="projected CRS in metres (default: Texas Centric Albers)")
     p.add_argument("--near", nargs=2, type=int, default=[100, 250], help="proximity thresholds in metres")
     p.add_argument("--search", type=int, default=1000, help="max distance searched for the nearest SFHA (m)")
+    p.add_argument("--bands", nargs="+", type=int, default=list(db.BANDS_M),
+                   help="band widths (m) for the sensitivity table (default: %(default)s)")
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
     p.add_argument("--skip-download", action="store_true", help="use data/raw/manifest.json as is")
     p.add_argument("--refresh", action="store_true", help="download again even if files exist")
@@ -57,7 +59,7 @@ def main():
     db_path = data / "flood.duckdb"
     db_path.unlink(missing_ok=True)
     con = db.connect(db_path)
-    timings = db.build(con, manifest, a.crs, near_m=tuple(a.near), search_m=a.search)
+    timings = db.build(con, manifest, a.crs, near_m=tuple(a.near), search_m=a.search, bands_m=tuple(a.bands))
     print("   ", timings)
 
     print("3/5 exports")
@@ -65,10 +67,10 @@ def main():
 
     print("4/5 GeoPandas cross-check")
     t = time.perf_counter()
-    cross = report.crosscheck(con, manifest, a.crs, a.search, tuple(a.near))
+    cross = report.crosscheck(con, manifest, a.crs, a.search, tuple(a.near), tuple(a.bands))
     timings["crosscheck_geopandas"] = round(time.perf_counter() - t, 2)
     print(f"    agree (clean tables): {cross['agree_clean']}   agree (raw files): {cross['agree_raw']}   "
-          f"distances: {cross['agree_distance']} (max diff {cross['distance_check']['max_abs_diff_m']} m)")
+          f"distances and bands: {cross['agree_distance']} (max diff {cross['distance_check']['max_abs_diff_m']} m)")
 
     if not a.no_maps:
         print("5/5 figures and web map")
@@ -88,7 +90,7 @@ def main():
 
     timings["download_or_cache"] = round(t_dl, 2)
     timings["total"] = round(time.perf_counter() - t0, 2)
-    run_args = {"counties": a.counties, "facility_types": a.facility_types, "near_m": a.near, "search_m": a.search,
+    run_args = {"counties": a.counties, "facility_types": a.facility_types, "near_m": a.near, "search_m": a.search, "bands_m": a.bands,
                 "python": sys.version.split()[0], "duckdb": __import__("duckdb").__version__,
                 "spatial_extension": con.execute("SELECT extension_version FROM duckdb_extensions() "
                                                  "WHERE extension_name = 'spatial'").fetchone()[0],

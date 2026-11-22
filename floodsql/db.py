@@ -18,7 +18,8 @@ _BLOCK = re.compile(r"^--\s*name:\s*(\w+)\s*$", re.M)
 _PARAM = re.compile(r"\$\{(\w+)\}")
 
 # Order matters: later files read the tables earlier files create.
-PIPELINE = ("02_clean.sql", "03_exposure.sql", "04_proximity.sql", "05_summary.sql")
+PIPELINE = ("02_clean.sql", "03_exposure.sql", "04_proximity.sql", "05_summary.sql", "06_band_sensitivity.sql")
+BANDS_M = (50, 100, 250, 500)  # band widths for the sensitivity table in 06_band_sensitivity.sql
 
 
 def connect(path: str | Path = ":memory:") -> duckdb.DuckDBPyConnection:
@@ -79,13 +80,16 @@ def load_inputs(con, manifest: dict, sql_dir: Path = SQL_DIR):
 
 
 def build(con, manifest: dict, crs: str = "EPSG:3083", near_m=(100, 250), search_m: int = 1000,
-          sql_dir: Path = SQL_DIR) -> dict:
+          sql_dir: Path = SQL_DIR, bands_m=BANDS_M) -> dict:
     """Run the whole SQL pipeline; returns seconds spent per file."""
+    if max(bands_m) > search_m:
+        raise ValueError(f"band widths {bands_m} must not exceed the search radius ({search_m} m)")
     timings = {}
     t = time.perf_counter()
     load_inputs(con, manifest, sql_dir)
     timings["01_load.sql"] = time.perf_counter() - t
-    params = {"crs": lit(crs), "near1_m": near_m[0], "near2_m": near_m[1], "search_m": search_m}
+    params = {"crs": lit(crs), "near1_m": near_m[0], "near2_m": near_m[1], "search_m": search_m,
+              "band_values": ", ".join(f"({int(b)})" for b in bands_m)}
     for f in PIPELINE:
         timings[f] = run_file(con, f, sql_dir, **params)
     return {k: round(v, 2) for k, v in timings.items()}

@@ -197,6 +197,22 @@ def test_summary_and_capacity(run):
     assert fire_cap is None
 
 
+def test_band_sensitivity(run):
+    con, _ = run
+    rows = {(b, t): (n, s) for b, t, n, s in con.execute(
+        "SELECT band_m, facility_type, n_outside_within_band, n_sfha_or_within_band FROM band_sensitivity").fetchall()}
+    assert sorted({b for b, _ in rows}) == [50, 100, 250, 500]
+    tot = con.execute("SELECT n_sfha, n_outside_within_100m, n_outside_within_250m "
+                      "FROM exposure_summary WHERE county = 'All' AND facility_type = 'All'").fetchone()
+    assert rows[(100, "All")] == (tot[1], tot[0] + tot[1])    # same as the 100 m and 250 m flags
+    assert rows[(250, "All")] == (tot[2], tot[0] + tot[2])
+    assert rows[(50, "All")][0] == 0                         # nearest outside point is Oak Care at 80 m
+    alls = [rows[(b, "All")][0] for b in (50, 100, 250, 500)]
+    assert alls == sorted(alls)                              # wider bands never count fewer
+    with pytest.raises(ValueError):
+        db.build(db.connect(), {"nfhl": [], "facilities": []}, CRS, bands_m=(50, 2000))
+
+
 def test_rtree_used_in_join(run):
     con, _ = run
     plan = con.execute("EXPLAIN SELECT count(*) FROM facilities f JOIN flood_zones z "

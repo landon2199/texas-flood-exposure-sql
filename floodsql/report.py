@@ -7,6 +7,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyproj
 import shapely
 
 SFHA_ZONES = ("A", "AE", "AH", "AO", "AR", "A99", "V", "VE")
@@ -47,7 +48,8 @@ def _counts(fac: pd.DataFrame, cls: pd.Series) -> dict:
     return out
 
 
-def crosscheck(con, manifest: dict, crs: str, search_m: int = 1000, near=(100, 250)) -> dict:
+def crosscheck(con, manifest: dict, crs: str, search_m: int = 1000, near=(100, 250),
+               bands=(50, 100, 250, 500)) -> dict:
     """Recompute the per-type SFHA and 0.2% counts with geopandas.sjoin, two ways.
 
     clean_tables: the cleaned polygons/points exported from DuckDB -> tests the join
@@ -56,6 +58,20 @@ def crosscheck(con, manifest: dict, crs: str, search_m: int = 1000, near=(100, 2
                   repaired with shapely.make_valid; facility points rebuilt from their
                   WGS84 lon/lat -> also tests reprojection and repair.
     """
+    # DuckDB's ST_Transform does not fetch PROJ datum grids, so WGS84 -> NAD83 is a no-shift
+    # ("ballpark") step there. The conda env turns PROJ_NETWORK on, and with grids pyproj moves
+    # the points about 0.7 m, which flips 2 edge facilities (checked 2026-11-22). Switch the
+    # network off here so both engines use the same transformation; the check then tests the
+    # join, repair and reprojection code rather than a datum choice.
+    net_was_on = pyproj.network.is_network_enabled()
+    pyproj.network.set_network_enabled(False)
+    try:
+        return _crosscheck(con, manifest, crs, search_m, near, bands)
+    finally:
+        pyproj.network.set_network_enabled(net_was_on)
+
+
+def _crosscheck(con, manifest, crs, search_m, near, bands) -> dict:
     sql_counts = {r[0]: {"sfha": r[1], "x_02pct": r[2]} for r in con.execute(
         "SELECT ftype, count(*) FILTER (WHERE in_sfha), count(*) FILTER (WHERE in_02pct) "
         "FROM facility_zone GROUP BY ftype").fetchall()}
@@ -78,16 +94,20 @@ def crosscheck(con, manifest: dict, crs: str, search_m: int = 1000, near=(100, 2
     def agree(other):
         return all(other.get(t) == v for t, v in sql_counts.items()) and set(other) == set(sql_counts)
 
-    dist = distance_check(con, crs, search_m, near)
+    dist = distance_check(con, crs, search_m, near, bands=bands)
     return {"sql": sql_counts, "geopandas_from_clean_tables": from_clean, "geopandas_from_raw_files": from_raw,
             "agree_clean": agree(from_clean), "agree_raw": agree(from_raw),
             "distance_check": dist, "agree_distance": dist["agree"],
             "n_facilities": int(len(fac)), "n_polygons_clean": int(len(zones)), "n_polygons_raw": int(len(raw))}
 
 
-def distance_check(con, crs: str, search_m: int, near=(100, 250), tol_m: float = 0.01) -> dict:
-    """Nearest-SFHA distance for facilities outside the SFHA, recomputed with geopandas.sjoin_nearest."""
-    fac = _gdf(con, "SELECT fac_id, dist_sfha_m, near_sfha_100m, near_sfha_250m, ST_AsWKB(geom) AS wkb "
+def distance_check(con, crs: str, search_m: int, near=(100, 250), tol_m: float = 0.01,
+                   bands=(50, 100, 250, 500)) -> dict:
+    """Nearest-SFHA distance for facilities outside the SFHA, recomputed with geopandas.sjoin_nearest.
+
+    Also recounts the band-width sensitivity table (06_band_sensitivity.sql) from those distances.
+    """
+    fac = _gdf(con, "SELECT fac_id, ftype, dist_sfha_m, near_sfha_100m, near_sfha_250m, ST_AsWKB(geom) AS wkb "
                     "FROM facility_exposure WHERE NOT in_sfha", crs)
     sfha = _gdf(con, "SELECT zone_id, ST_AsWKB(geom) AS wkb FROM flood_sfha", crs)
     j = gpd.sjoin_nearest(fac[["fac_id", "geometry"]], sfha, how="left", max_distance=search_m, distance_col="d")
@@ -99,10 +119,22 @@ def distance_check(con, crs: str, search_m: int, near=(100, 250), tol_m: float =
                       for n, col in ((near[0], "near_sfha_100m"), (near[1], "near_sfha_250m")))
     found_agree = bool((sq.notna() == gp.notna()).all())
     max_diff = float(diff.max()) if len(diff) else 0.0
+    ftype = fac.set_index("fac_id")["ftype"]
+    gp_bands = {}
+    for b in bands:
+        inside = ftype[(gp.fillna(np.inf) <= b).to_numpy()]
+        counts = inside.value_counts().to_dict()
+        gp_bands[int(b)] = {t: int(counts.get(t, 0)) for t in sorted(set(ftype))} | {"All": int(len(inside))}
+    sql_bands = {}
+    for b, t, n in con.execute("SELECT band_m, facility_type, n_outside_within_band FROM band_sensitivity").fetchall():
+        sql_bands.setdefault(int(b), {})[t] = int(n)
+    bands_agree = all(gp_bands[b] == sql_bands.get(b) for b in gp_bands)
     return {"n_outside_sfha": int(len(fac)), "n_with_sfha_within_search": int(both.sum()),
             "max_abs_diff_m": round(max_diff, 6), "same_facilities_found": found_agree,
             "threshold_flags_agree": bool(flags_agree), "tolerance_m": tol_m,
-            "agree": bool(found_agree and flags_agree and max_diff <= tol_m)}
+            "band_counts_geopandas": {str(b): v for b, v in gp_bands.items()},
+            "band_counts_agree": bool(bands_agree),
+            "agree": bool(found_agree and flags_agree and bands_agree and max_diff <= tol_m)}
 
 
 def export(con, results: Path, data_out: Path, crs: str = "EPSG:3083"):
@@ -111,6 +143,7 @@ def export(con, results: Path, data_out: Path, crs: str = "EPSG:3083"):
     r, d = results.as_posix(), data_out.as_posix()
     con.execute(f"COPY exposure_summary TO '{r}/exposure_summary.csv' (HEADER)")
     con.execute(f"COPY nfhl_metadata TO '{r}/nfhl_metadata.csv' (HEADER)")
+    con.execute(f"COPY band_sensitivity TO '{r}/band_sensitivity.csv' (HEADER)")
     # all screened facilities (no geometry column needed: lon/lat are kept)
     con.execute(f"COPY (SELECT * EXCLUDE (geom) FROM facility_exposure ORDER BY fac_id) "
                 f"TO '{r}/facility_exposure.parquet' (FORMAT parquet, COMPRESSION zstd)")
@@ -172,6 +205,13 @@ def metrics(con, manifest: dict, crs: str, cross: dict, timings: dict, args: dic
                                      and not k.startswith("capacity")}
                       for r in summ[(summ.county != "All") & (summ.facility_type == "All")].to_dict("records")},
         "by_county_and_type": [{k: clean(v) for k, v in r.items()} for r in by_cell.to_dict("records")],
+        "band_sensitivity": {str(b): {t: {"n_outside_within_band": int(n), "n_sfha_or_within_band": int(s),
+                                          "pct_sfha_or_within_band": float(p)}
+                                      for bb, t, n, s, p in rows if bb == b}
+                             for rows in [con.execute("SELECT band_m, facility_type, n_outside_within_band, "
+                                                      "n_sfha_or_within_band, pct_sfha_or_within_band "
+                                                      "FROM band_sensitivity").fetchall()]
+                             for b in sorted({r[0] for r in rows})},
         "flood_polygons_by_class": {k: int(n) for k, n in con.execute(
             "SELECT zone_class || coalesce(' | ' || zone_subty, ''), count(*) FROM flood_zones "
             "WHERE zone_class LIKE 'X%' GROUP BY 1 UNION ALL "

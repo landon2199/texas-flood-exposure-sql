@@ -19,6 +19,12 @@
       250
     ],
     "search_m": 1000,
+    "bands_m": [
+      50,
+      100,
+      250,
+      500
+    ],
     "python": "3.12.15",
     "duckdb": "1.5.6",
     "spatial_extension": "04270fe",
@@ -706,13 +712,123 @@
       "capacity_missing": 1
     }
   ],
+  "band_sensitivity": {
+    "50": {
+      "fire_ems": {
+        "n_outside_within_band": 41,
+        "n_sfha_or_within_band": 93,
+        "pct_sfha_or_within_band": 24.8
+      },
+      "hospital": {
+        "n_outside_within_band": 8,
+        "n_sfha_or_within_band": 21,
+        "pct_sfha_or_within_band": 15.1
+      },
+      "nursing_home": {
+        "n_outside_within_band": 51,
+        "n_sfha_or_within_band": 104,
+        "pct_sfha_or_within_band": 14.9
+      },
+      "public_school": {
+        "n_outside_within_band": 68,
+        "n_sfha_or_within_band": 200,
+        "pct_sfha_or_within_band": 12.1
+      },
+      "All": {
+        "n_outside_within_band": 168,
+        "n_sfha_or_within_band": 418,
+        "pct_sfha_or_within_band": 14.6
+      }
+    },
+    "100": {
+      "fire_ems": {
+        "n_outside_within_band": 55,
+        "n_sfha_or_within_band": 107,
+        "pct_sfha_or_within_band": 28.5
+      },
+      "hospital": {
+        "n_outside_within_band": 13,
+        "n_sfha_or_within_band": 26,
+        "pct_sfha_or_within_band": 18.7
+      },
+      "nursing_home": {
+        "n_outside_within_band": 103,
+        "n_sfha_or_within_band": 156,
+        "pct_sfha_or_within_band": 22.3
+      },
+      "public_school": {
+        "n_outside_within_band": 173,
+        "n_sfha_or_within_band": 305,
+        "pct_sfha_or_within_band": 18.5
+      },
+      "All": {
+        "n_outside_within_band": 344,
+        "n_sfha_or_within_band": 594,
+        "pct_sfha_or_within_band": 20.8
+      }
+    },
+    "250": {
+      "fire_ems": {
+        "n_outside_within_band": 89,
+        "n_sfha_or_within_band": 141,
+        "pct_sfha_or_within_band": 37.6
+      },
+      "hospital": {
+        "n_outside_within_band": 40,
+        "n_sfha_or_within_band": 53,
+        "pct_sfha_or_within_band": 38.1
+      },
+      "nursing_home": {
+        "n_outside_within_band": 197,
+        "n_sfha_or_within_band": 250,
+        "pct_sfha_or_within_band": 35.8
+      },
+      "public_school": {
+        "n_outside_within_band": 417,
+        "n_sfha_or_within_band": 549,
+        "pct_sfha_or_within_band": 33.3
+      },
+      "All": {
+        "n_outside_within_band": 743,
+        "n_sfha_or_within_band": 993,
+        "pct_sfha_or_within_band": 34.7
+      }
+    },
+    "500": {
+      "fire_ems": {
+        "n_outside_within_band": 166,
+        "n_sfha_or_within_band": 218,
+        "pct_sfha_or_within_band": 58.1
+      },
+      "hospital": {
+        "n_outside_within_band": 62,
+        "n_sfha_or_within_band": 75,
+        "pct_sfha_or_within_band": 54.0
+      },
+      "nursing_home": {
+        "n_outside_within_band": 334,
+        "n_sfha_or_within_band": 387,
+        "pct_sfha_or_within_band": 55.4
+      },
+      "public_school": {
+        "n_outside_within_band": 749,
+        "n_sfha_or_within_band": 881,
+        "pct_sfha_or_within_band": 53.5
+      },
+      "All": {
+        "n_outside_within_band": 1311,
+        "n_sfha_or_within_band": 1561,
+        "pct_sfha_or_within_band": 54.6
+      }
+    }
+  },
   "flood_polygons_by_class": {
     "X_LEVEE | AREA WITH REDUCED FLOOD RISK DUE TO LEVEE": 169,
-    "X_MINIMAL | AREA OF MINIMAL FLOOD HAZARD": 4597,
     "X_0.2PCT | 0.2 PCT ANNUAL CHANCE FLOOD HAZARD": 10726,
+    "X_MINIMAL | AREA OF MINIMAL FLOOD HAZARD": 4597,
+    "NOT_INCLUDED": 4,
     "OPEN_WATER": 4,
-    "SFHA": 7397,
-    "NOT_INCLUDED": 4
+    "SFHA": 7397
   },
   "largest_hospitals_in_sfha": [
     {
@@ -841,21 +957,21 @@
         "nursing_home": 3310
       },
       "clean_in_study_area": {
-        "fire_ems": 375,
-        "hospital": 139,
         "public_school": 1647,
-        "nursing_home": 699
+        "nursing_home": 699,
+        "hospital": 139,
+        "fire_ems": 375
       }
     },
     "exposure": {
       "facilities_on_class_boundary": {
-        "public_school": 2,
-        "nursing_home": 1
+        "nursing_home": 1,
+        "public_school": 2
       },
       "zone_not_included": {
-        "fire_ems": 1,
         "public_school": 9,
-        "nursing_home": 1
+        "nursing_home": 1,
+        "fire_ems": 1
       }
     }
   },
@@ -923,6 +1039,37 @@
       "same_facilities_found": true,
       "threshold_flags_agree": true,
       "tolerance_m": 0.01,
+      "band_counts_geopandas": {
+        "50": {
+          "fire_ems": 41,
+          "hospital": 8,
+          "nursing_home": 51,
+          "public_school": 68,
+          "All": 168
+        },
+        "100": {
+          "fire_ems": 55,
+          "hospital": 13,
+          "nursing_home": 103,
+          "public_school": 173,
+          "All": 344
+        },
+        "250": {
+          "fire_ems": 89,
+          "hospital": 40,
+          "nursing_home": 197,
+          "public_school": 417,
+          "All": 743
+        },
+        "500": {
+          "fire_ems": 166,
+          "hospital": 62,
+          "nursing_home": 334,
+          "public_school": 749,
+          "All": 1311
+        }
+      },
+      "band_counts_agree": true,
       "agree": true
     },
     "agree_distance": true,
@@ -931,15 +1078,15 @@
     "n_polygons_raw": 22897
   },
   "timings_s": {
-    "01_load.sql": 3.25,
-    "02_clean.sql": 13.22,
-    "03_exposure.sql": 2.18,
-    "04_proximity.sql": 0.16,
+    "01_load.sql": 4.38,
+    "02_clean.sql": 17.94,
+    "03_exposure.sql": 3.13,
+    "04_proximity.sql": 0.32,
     "05_summary.sql": 0.05,
-    "crosscheck_geopandas": 9.7,
-    "figures_and_map": 24.33,
+    "06_band_sensitivity.sql": 0.01,
+    "crosscheck_geopandas": 14.3,
     "download_or_cache": 0.0,
-    "total": 54.04
+    "total": 42.16
   },
   "sources": {
     "counties": {
