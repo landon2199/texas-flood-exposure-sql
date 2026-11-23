@@ -189,9 +189,8 @@ def hero(counties, zones, fac, totals: dict, out: Path):
 # ---------------------------------------------------------------------------
 # Interactive map
 # ---------------------------------------------------------------------------
-ESRI_GRAY = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-ESRI_ATTR = ('Powered by <a href="https://www.esri.com">Esri</a> | Esri, TomTom, Garmin, FAO, NOAA, USGS, '
-             '&copy; OpenStreetMap contributors, and the GIS User Community')
+OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
 
 def web_map(con, fac, crs, out: Path, tol_m=40):
@@ -205,8 +204,9 @@ def web_map(con, fac, crs, out: Path, tol_m=40):
                          FROM flood_sfha GROUP BY county_fips""", "EPSG:4326")
     sfha["geometry"] = shapely.set_precision(sfha.geometry.values, 1e-5)
     m = folium.Map(location=[29.45, -95.3], zoom_start=9, tiles=None, control_scale=True)
-    folium.TileLayer(ESRI_GRAY, attr=ESRI_ATTR, name="Esri World Light Gray Canvas", max_zoom=16).add_to(m)
-    folium.TileLayer("OpenStreetMap", name="OpenStreetMap", show=False).add_to(m)
+    folium.TileLayer(OSM_TILES, attr=OSM_ATTR, name="OpenStreetMap (gray)", max_zoom=19, class_name="gray-base").add_to(m)
+    folium.TileLayer("OpenStreetMap", name="OpenStreetMap (color)", show=False).add_to(m)
+    m.get_root().header.add_child(folium.Element("<style>.gray-base{filter:grayscale(1) brightness(1.06) contrast(0.92);}</style>"))
     folium.GeoJson(sfha.to_json(drop_id=True), name="FEMA SFHA (1% annual chance), simplified",
                    style_function=lambda _: {"fillColor": SFHA_FILL, "color": SFHA_FILL, "weight": 0.3, "fillOpacity": 0.35},
                    interactive=False).add_to(m)

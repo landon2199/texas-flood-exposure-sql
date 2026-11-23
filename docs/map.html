@@ -179,6 +179,7 @@
                         }
                     </style>
             
+<style>.gray-base{filter:grayscale(1) brightness(1.06) contrast(0.92);}</style>
 </head>
 <body>
     
@@ -220,13 +221,14 @@
         
     
             var tile_layer_5c55025a54dc4305f9ac5d4f989f6851 = L.tileLayer(
-                "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {
   "minZoom": 0,
-  "maxZoom": 16,
-  "maxNativeZoom": 16,
+  "className": "gray-base",
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
   "noWrap": false,
-  "attribution": "Powered by \u003ca href=\"https://www.esri.com\"\u003eEsri\u003c/a\u003e | Esri, TomTom, Garmin, FAO, NOAA, USGS, \u0026copy; OpenStreetMap contributors, and the GIS User Community",
+  "attribution": "\u0026copy; \u003ca href=\u0027https://www.openstreetmap.org/copyright\u0027\u003eOpenStreetMap\u003c/a\u003e contributors",
   "subdomains": "abc",
   "detectRetina": false,
   "tms": false,
@@ -802,8 +804,8 @@
     
             var layer_control_2684bcd2a90bc0c1c5ddd51026e71112_layers = {
                 base_layers : {
-                    "Esri World Light Gray Canvas" : tile_layer_5c55025a54dc4305f9ac5d4f989f6851,
-                    "OpenStreetMap" : tile_layer_d0a6b06c3f18cb96d5b731ecabf98cdd,
+                    "OpenStreetMap (gray)" : tile_layer_5c55025a54dc4305f9ac5d4f989f6851,
+                    "OpenStreetMap (color)" : tile_layer_d0a6b06c3f18cb96d5b731ecabf98cdd,
                 },
                 overlays :  {
                     "FEMA SFHA (1% annual chance), simplified" : geo_json_723408c427fe5254718daee925ac9d8a,
